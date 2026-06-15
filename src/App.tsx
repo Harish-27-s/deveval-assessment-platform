@@ -1663,9 +1663,9 @@ export const App: React.FC = () => {
           }}
         >
           {/* Left Area: Logo & Section Breadcrumbs */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0 }}>
             <div 
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} 
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flexShrink: 0 }} 
               onClick={() => { 
                 if (isTestStarted && !isDisqualified && !isTimeUp) { 
                   showToast('You must finish and submit your test before returning to the dashboard.', 'error'); 
@@ -1701,13 +1701,13 @@ export const App: React.FC = () => {
                 DevEval
               </span>
             </div>
-
+ 
             {/* Breadcrumbs Navigation */}
             {(selectedSectionId || activeChallenge) && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)', borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-muted)', borderLeft: '1px solid var(--border-color)', paddingLeft: '16px', minWidth: 0 }}>
                 <Home 
                   size={14} 
-                  style={{ cursor: 'pointer' }} 
+                  style={{ cursor: 'pointer', flexShrink: 0 }} 
                   onClick={() => { 
                     if (isTestStarted && !isDisqualified && !isTimeUp) { 
                       showToast('You must finish and submit your test before returning to the dashboard.', 'error'); 
@@ -1719,23 +1719,42 @@ export const App: React.FC = () => {
                 
                 {activeSection && (
                   <>
-                    <ChevronRight size={12} />
+                    <ChevronRight size={12} style={{ flexShrink: 0 }} />
                     <span 
-                      style={{ cursor: 'pointer', fontWeight: activeChallenge ? 500 : 600, color: activeChallenge ? 'var(--text-secondary)' : 'var(--text-primary)' }}
+                      style={{ 
+                        cursor: 'pointer', 
+                        fontWeight: activeChallenge ? 500 : 600, 
+                        color: activeChallenge ? 'var(--text-secondary)' : 'var(--text-primary)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: '120px'
+                      }}
                       onClick={() => { 
                         if (isTestStarted && !isDisqualified && !isTimeUp) return; 
                         setSelectedId(null); 
                       }}
+                      title={activeSection.name}
                     >
                       {activeSection.name}
                     </span>
                   </>
                 )}
-
+ 
                 {activeChallenge && (
                   <>
-                    <ChevronRight size={12} />
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    <ChevronRight size={12} style={{ flexShrink: 0 }} />
+                    <span 
+                      style={{ 
+                        fontWeight: 600, 
+                        color: 'var(--text-primary)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: '120px'
+                      }}
+                      title={activeChallenge.title}
+                    >
                       {activeChallenge.title}
                     </span>
                   </>
@@ -1743,7 +1762,7 @@ export const App: React.FC = () => {
               </div>
             )}
           </div>
-
+ 
           {/* Center Area: Countdown Timer */}
           {selectedSectionId && isTestStarted && !isAdminOpen && (
             <div
@@ -1761,9 +1780,7 @@ export const App: React.FC = () => {
                 borderRadius: '16px',
                 border: '1px solid var(--border-color)',
                 fontFamily: 'var(--font-mono)',
-                position: 'absolute',
-                left: '50%',
-                transform: 'translateX(-50%)',
+                flexShrink: 0,
               }}
               title="Time Remaining"
             >
@@ -1771,9 +1788,9 @@ export const App: React.FC = () => {
               <span>{timeLeftStr}</span>
             </div>
           )}
-
+ 
           {/* Right Area: Controls & User sessions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
             {/* Admin toggle dashboard */}
             {currentUser.role === 'admin' && (
               <button
