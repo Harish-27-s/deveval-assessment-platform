@@ -2446,7 +2446,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <tr>
                   <th>Candidate</th>
                   <th>Registered Date</th>
-                  <th>Challenges Solved</th>
+                  <th>Attempts by Section</th>
                   <th>Total Score</th>
                   <th>Proctoring Status</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
@@ -2471,18 +2471,62 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                           {usr.created_at ? new Date(usr.created_at).toLocaleDateString() : 'N/A'}
                         </td>
                         <td>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                            {userComps.map(c => {
-                              const chal = challenges.find(ch => ch.id === c.challenge_id);
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {sections.map(sect => {
+                              const compsInSect = userComps.filter(c => 
+                                c.section_id === sect.id || (!c.section_id && sect.challenge_ids.includes(c.challenge_id))
+                              );
+                              if (compsInSect.length === 0) return null;
                               return (
-                                <span 
-                                  key={c.challenge_id} 
-                                  style={{ fontSize: '0.72rem', background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
-                                >
-                                  {chal?.title || c.challenge_id} ({c.score !== undefined ? c.score : 0} pts)
-                                </span>
+                                <div key={sect.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--accent-primary)' }}>
+                                    {sect.name}
+                                  </span>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                    {compsInSect.map(c => {
+                                      const chal = challenges.find(ch => ch.id === c.challenge_id);
+                                      return (
+                                        <span 
+                                          key={c.challenge_id} 
+                                          style={{ fontSize: '0.7rem', background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                        >
+                                          {chal?.title || c.challenge_id} ({c.score !== undefined ? c.score : 0} pts)
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
                               );
                             })}
+                            
+                            {/* Orphaned completions */}
+                            {(() => {
+                              const orphanedComps = userComps.filter(c => 
+                                !sections.some(sect => sect.id === c.section_id || (!c.section_id && sect.challenge_ids.includes(c.challenge_id)))
+                              );
+                              if (orphanedComps.length === 0) return null;
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                    Independent attempts
+                                  </span>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                    {orphanedComps.map(c => {
+                                      const chal = challenges.find(ch => ch.id === c.challenge_id);
+                                      return (
+                                        <span 
+                                          key={c.challenge_id} 
+                                          style={{ fontSize: '0.7rem', background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}
+                                        >
+                                          {chal?.title || c.challenge_id} ({c.score !== undefined ? c.score : 0} pts)
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
                             {solvedCount === 0 && <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>None yet</span>}
                           </div>
                         </td>
