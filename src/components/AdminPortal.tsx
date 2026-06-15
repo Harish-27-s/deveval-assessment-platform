@@ -359,7 +359,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         viewingCodeSolution.userId,
         viewingCodeSolution.challengeId,
         overrideScore,
-        evaluatorNotes
+        evaluatorNotes,
+        viewingCodeSolution.sectionId || ''
       );
       await loadUsersAndStats();
       showToast('Manual score override and evaluation notes saved successfully! 📝', 'success');
@@ -2486,12 +2487,43 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                     {compsInSect.map(c => {
                                       const chal = challenges.find(ch => ch.id === c.challenge_id);
                                       return (
-                                        <span 
+                                        <button 
                                           key={c.challenge_id} 
-                                          style={{ fontSize: '0.7rem', background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                          onClick={() => {
+                                            setViewingCodeSolution({
+                                              username: usr.username,
+                                              challengeTitle: chal ? chal.title : c.challenge_id,
+                                              challengeId: c.challenge_id,
+                                              userId: usr.id,
+                                              code: c.submitted_code || '',
+                                              language: c.language || 'javascript',
+                                              keystroke_log: c.keystroke_log || [],
+                                              sectionId: c.section_id
+                                            });
+                                          }}
+                                          style={{ 
+                                            fontSize: '0.7rem', 
+                                            background: 'var(--bg-tertiary)', 
+                                            padding: '2px 6px', 
+                                            borderRadius: '4px', 
+                                            border: '1px solid var(--border-color)', 
+                                            color: 'var(--text-primary)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            textAlign: 'left'
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            e.currentTarget.style.background = 'var(--accent-primary-glow)';
+                                            e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            e.currentTarget.style.background = 'var(--bg-tertiary)';
+                                            e.currentTarget.style.borderColor = 'var(--border-color)';
+                                          }}
+                                          title="Click to view detailed solution report"
                                         >
                                           {chal?.title || c.challenge_id} ({c.score !== undefined ? c.score : 0} pts)
-                                        </span>
+                                        </button>
                                       );
                                     })}
                                   </div>
@@ -2514,12 +2546,45 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                     {orphanedComps.map(c => {
                                       const chal = challenges.find(ch => ch.id === c.challenge_id);
                                       return (
-                                        <span 
+                                        <button 
                                           key={c.challenge_id} 
-                                          style={{ fontSize: '0.7rem', background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}
+                                          onClick={() => {
+                                            setViewingCodeSolution({
+                                              username: usr.username,
+                                              challengeTitle: chal ? chal.title : c.challenge_id,
+                                              challengeId: c.challenge_id,
+                                              userId: usr.id,
+                                              code: c.submitted_code || '',
+                                              language: c.language || 'javascript',
+                                              keystroke_log: c.keystroke_log || [],
+                                              sectionId: c.section_id
+                                            });
+                                          }}
+                                          style={{ 
+                                            fontSize: '0.7rem', 
+                                            background: 'var(--bg-tertiary)', 
+                                            padding: '2px 6px', 
+                                            borderRadius: '4px', 
+                                            border: '1px solid var(--border-color)', 
+                                            color: 'var(--text-muted)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            textAlign: 'left'
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            e.currentTarget.style.background = 'var(--accent-primary-glow)';
+                                            e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                                            e.currentTarget.style.color = 'var(--text-primary)';
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            e.currentTarget.style.background = 'var(--bg-tertiary)';
+                                            e.currentTarget.style.borderColor = 'var(--border-color)';
+                                            e.currentTarget.style.color = 'var(--text-muted)';
+                                          }}
+                                          title="Click to view detailed solution report"
                                         >
                                           {chal?.title || c.challenge_id} ({c.score !== undefined ? c.score : 0} pts)
-                                        </span>
+                                        </button>
                                       );
                                     })}
                                   </div>
@@ -2640,51 +2705,121 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </button>
             </div>
 
-            {/* Switch between different solved questions if multiple */}
+            {/* Switch between different solved questions grouped by sections */}
             {(() => {
-              const comps = completionsList.filter(c => 
+              const userComps = completionsList.filter(c => 
                 c.user_id === viewingCodeSolution.userId &&
-                (!viewingCodeSolution.sectionId || c.section_id === viewingCodeSolution.sectionId)
+                (c.section_id || '') === (viewingCodeSolution.sectionId || '')
               );
-              if (comps.length > 1) {
-                return (
-                  <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', flexWrap: 'wrap' }}>
-                    {comps.map(comp => {
-                      const chal = challenges.find(ch => ch.id === comp.challenge_id);
-                      const isActive = comp.challenge_id === viewingCodeSolution.challengeId;
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                    Switch Section / Challenge solution:
+                  </span>
+                  
+                  {sections
+                    .filter(sect => sect.id === viewingCodeSolution.sectionId)
+                    .map(sect => {
+                      const compsInSect = userComps.filter(c => 
+                        c.section_id === sect.id || (!c.section_id && sect.challenge_ids.includes(c.challenge_id))
+                      );
+                      if (compsInSect.length === 0) return null;
                       return (
-                        <button
-                          key={comp.challenge_id}
-                          onClick={() => {
-                            setViewingCodeSolution({
-                              username: viewingCodeSolution.username,
-                              challengeTitle: chal ? chal.title : comp.challenge_id,
-                              challengeId: comp.challenge_id,
-                              userId: viewingCodeSolution.userId,
-                              code: comp.submitted_code || '',
-                              language: comp.language || 'javascript',
-                              keystroke_log: comp.keystroke_log || [],
-                              sectionId: comp.section_id
-                            });
-                          }}
-                          style={{
-                            background: isActive ? 'var(--accent-primary-glow)' : 'transparent',
-                            color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            border: isActive ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)',
-                            borderRadius: '4px',
-                            padding: '4px 10px',
-                            fontSize: '0.75rem',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {chal?.title || comp.challenge_id}
-                        </button>
+                        <div key={sect.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 12px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-primary)' }}>
+                            📁 {sect.name}
+                          </span>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            {compsInSect.map(comp => {
+                              const chal = challenges.find(ch => ch.id === comp.challenge_id);
+                              const isActive = comp.challenge_id === viewingCodeSolution.challengeId && comp.section_id === viewingCodeSolution.sectionId;
+                              return (
+                                <button
+                                  key={`${comp.challenge_id}_${comp.section_id}`}
+                                  onClick={() => {
+                                    setViewingCodeSolution({
+                                      username: viewingCodeSolution.username,
+                                      challengeTitle: chal ? chal.title : comp.challenge_id,
+                                      challengeId: comp.challenge_id,
+                                      userId: viewingCodeSolution.userId,
+                                      code: comp.submitted_code || '',
+                                      language: comp.language || 'javascript',
+                                      keystroke_log: comp.keystroke_log || [],
+                                      sectionId: comp.section_id
+                                    });
+                                  }}
+                                  style={{
+                                    background: isActive ? 'var(--accent-primary-glow)' : 'var(--bg-secondary)',
+                                    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                    border: isActive ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)',
+                                    borderRadius: '4px',
+                                    padding: '4px 10px',
+                                    fontSize: '0.72rem',
+                                    cursor: 'pointer',
+                                    fontWeight: isActive ? 600 : 500
+                                  }}
+                                >
+                                  {chal?.title || comp.challenge_id}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       );
                     })}
-                  </div>
-                );
-              }
-              return null;
+
+                  {/* Orphaned completions */}
+                  {(() => {
+                    if (viewingCodeSolution.sectionId) return null;
+                    const orphanedComps = userComps.filter(c => 
+                      !sections.some(sect => sect.id === c.section_id || (!c.section_id && sect.challenge_ids.includes(c.challenge_id)))
+                    );
+                    if (orphanedComps.length === 0) return null;
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 12px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                          Independent attempts
+                        </span>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {orphanedComps.map(comp => {
+                            const chal = challenges.find(ch => ch.id === comp.challenge_id);
+                            const isActive = comp.challenge_id === viewingCodeSolution.challengeId && comp.section_id === viewingCodeSolution.sectionId;
+                            return (
+                              <button
+                                key={`${comp.challenge_id}_${comp.section_id}`}
+                                onClick={() => {
+                                  setViewingCodeSolution({
+                                    username: viewingCodeSolution.username,
+                                    challengeTitle: chal ? chal.title : comp.challenge_id,
+                                    challengeId: comp.challenge_id,
+                                    userId: viewingCodeSolution.userId,
+                                    code: comp.submitted_code || '',
+                                    language: comp.language || 'javascript',
+                                    keystroke_log: comp.keystroke_log || [],
+                                    sectionId: comp.section_id
+                                  });
+                                }}
+                                style={{
+                                  background: isActive ? 'var(--accent-primary-glow)' : 'var(--bg-secondary)',
+                                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                  border: isActive ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)',
+                                  borderRadius: '4px',
+                                  padding: '4px 10px',
+                                  fontSize: '0.72rem',
+                                  cursor: 'pointer',
+                                  fontWeight: isActive ? 600 : 500
+                                }}
+                              >
+                                {chal?.title || comp.challenge_id}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              );
             })()}
 
             {/* Timeline Video-like Playback */}

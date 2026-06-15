@@ -1818,59 +1818,94 @@ export const App: React.FC = () => {
 
             {/* Question Navigation Map */}
             {selectedSectionId && isTestStarted && !isAdminOpen && activeSection && (
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginRight: '4px' }}>
-                {assignedChallengeIds
-                  .map((cid) => challengesList.find((c) => c.id === cid))
-                  .filter((c): c is Challenge => !!c)
-                  .map((c, index) => {
-                    const isCurrent = selectedId === c.id;
-                    const isSolved = solvedIds.includes(c.id);
-                    const isVisited = visitedChallengeIds.includes(c.id);
-                    
-                    let bgColor = 'var(--bg-tertiary)'; // Gray (Unvisited)
-                    let borderCol = 'var(--border-color)';
-                    let textCol = 'var(--text-secondary)';
-                    
-                    if (isSolved) {
-                      bgColor = 'rgba(16, 185, 129, 0.2)'; // Green (Submitted)
-                      borderCol = 'var(--success)';
-                      textCol = 'var(--success)';
-                    } else if (isVisited) {
-                      bgColor = 'rgba(245, 158, 11, 0.2)'; // Yellow (In-progress)
-                      borderCol = 'var(--warning)';
-                      textCol = 'var(--warning)';
-                    }
-                    
-                    if (isCurrent) {
-                      borderCol = 'var(--text-primary)';
-                    }
+              assignedChallengeIds.length <= 8 ? (
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginRight: '4px', flexShrink: 0 }}>
+                  {assignedChallengeIds
+                    .map((cid) => challengesList.find((c) => c.id === cid))
+                    .filter((c): c is Challenge => !!c)
+                    .map((c, index) => {
+                      const isCurrent = selectedId === c.id;
+                      const isSolved = solvedIds.includes(c.id);
+                      const isVisited = visitedChallengeIds.includes(c.id);
+                      
+                      let bgColor = 'var(--bg-tertiary)'; // Gray (Unvisited)
+                      let borderCol = 'var(--border-color)';
+                      let textCol = 'var(--text-secondary)';
+                      
+                      if (isSolved) {
+                        bgColor = 'rgba(16, 185, 129, 0.2)'; // Green (Submitted)
+                        borderCol = 'var(--success)';
+                        textCol = 'var(--success)';
+                      } else if (isVisited) {
+                        bgColor = 'rgba(245, 158, 11, 0.2)'; // Yellow (In-progress)
+                        borderCol = 'var(--warning)';
+                        textCol = 'var(--warning)';
+                      }
+                      
+                      if (isCurrent) {
+                        borderCol = 'var(--text-primary)';
+                      }
 
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => setSelectedId(c.id)}
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '4px',
-                          background: bgColor,
-                          border: `1.5px solid ${borderCol}`,
-                          color: textCol,
-                          fontSize: '0.82rem',
-                          fontWeight: 'bold',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxSizing: 'border-box'
-                        }}
-                        title={c.title}
-                      >
-                        {index + 1}
-                      </button>
-                    );
-                  })}
-              </div>
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => setSelectedId(c.id)}
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '4px',
+                            background: bgColor,
+                            border: `1.5px solid ${borderCol}`,
+                            color: textCol,
+                            fontSize: '0.82rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxSizing: 'border-box',
+                            flexShrink: 0
+                          }}
+                          title={c.title}
+                        >
+                          {index + 1}
+                        </button>
+                      );
+                    })}
+                </div>
+              ) : (
+                <select
+                  value={selectedId || ''}
+                  onChange={(e) => setSelectedId(e.target.value)}
+                  style={{
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '4px 12px 4px 8px',
+                    fontSize: '0.82rem',
+                    fontWeight: 'bold',
+                    maxWidth: '180px',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    flexShrink: 0,
+                    marginRight: '4px'
+                  }}
+                >
+                  {assignedChallengeIds
+                    .map((cid) => challengesList.find((c) => c.id === cid))
+                    .filter((c): c is Challenge => !!c)
+                    .map((c, index) => {
+                      const isSolved = solvedIds.includes(c.id);
+                      const statusPrefix = isSolved ? '✓ ' : '';
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {statusPrefix}Q{index + 1}: {c.title}
+                        </option>
+                      );
+                    })}
+                </select>
+              )
             )}
 
             {/* Emergency Support Button */}
