@@ -124,6 +124,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [questionSearch, setQuestionSearch] = useState('');
   const [questionDifficultyFilter, setQuestionDifficultyFilter] = useState('All');
   const [questionCategoryFilter, setQuestionCategoryFilter] = useState('All');
+  const [questionTypeFilter, setQuestionTypeFilter] = useState('All');
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
 
   // Bulk JSON Upload states
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
@@ -328,6 +330,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setBulkUploadSuccess(null);
     setBulkInviteError(null);
     setBulkInviteSuccess(null);
+    setSelectedQuestionIds([]);
   };
 
   const loadUsersAndStats = async () => {
@@ -496,9 +499,29 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         try {
           await removeChallenge(challengeId);
           await onRefresh();
+          setSelectedQuestionIds(prev => prev.filter(id => id !== challengeId));
           showToast('Challenge deleted successfully', 'success');
         } catch (err: any) {
           showToast('Failed to delete challenge: ' + err.message, 'error');
+        }
+      }
+    });
+  };
+
+  const handleBulkDeleteChallenges = () => {
+    if (selectedQuestionIds.length === 0) return;
+    setConfirmDialog({
+      message: `Are you sure you want to permanently delete the ${selectedQuestionIds.length} selected challenges? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          for (const cid of selectedQuestionIds) {
+            await removeChallenge(cid);
+          }
+          await onRefresh();
+          setSelectedQuestionIds([]);
+          showToast(`${selectedQuestionIds.length} challenges deleted successfully! 🗑️`, 'success');
+        } catch (err: any) {
+          showToast('Failed to delete challenges: ' + err.message, 'error');
         }
       }
     });
@@ -1341,6 +1364,28 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <option value="Expert">Expert</option>
                   </select>
 
+                  <select
+                    className="input-text"
+                    style={{ maxWidth: '140px', background: 'var(--bg-primary)' }}
+                    value={questionTypeFilter}
+                    onChange={(e) => setQuestionTypeFilter(e.target.value)}
+                  >
+                    <option value="All">All Types</option>
+                    <option value="Coding">Coding</option>
+                    <option value="MCQ">MCQ</option>
+                  </select>
+
+                  {selectedQuestionIds.length > 0 && (
+                    <button
+                      className="btn-danger"
+                      onClick={handleBulkDeleteChallenges}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.8rem' }}
+                    >
+                      <Trash2 size={14} />
+                      <span>Delete Selected ({selectedQuestionIds.length})</span>
+                    </button>
+                  )}
+
                   <button className="btn-primary" onClick={handleOpenAddForm}>
                     <Plus size={16} />
                     <span>Create Problem</span>
@@ -1348,13 +1393,43 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </div>
               </div>
 
-              <div className="table-container">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>ID / Slug</th>
-                      <th>Title</th>
-                      <th>Category</th>
+              {(() => {
+                const visibleFilteredChallenges = challenges.filter(c => {
+                  const matchesSearch = c.title.toLowerCase().includes(questionSearch.toLowerCase()) || c.id.toLowerCase().includes(questionSearch.toLowerCase());
+                  const matchesCategory = questionCategoryFilter === 'All' || c.category === questionCategoryFilter;
+                  const matchesDifficulty = questionDifficultyFilter === 'All' || c.difficulty === questionDifficultyFilter;
+                  const matchesType = questionTypeFilter === 'All' 
+                    ? true 
+                    : questionTypeFilter === 'MCQ' 
+                      ? c.isMcq === true 
+                      : c.isMcq !== true;
+                  return matchesSearch && matchesCategory && matchesDifficulty && matchesType;
+                });
+
+                return (
+                  <div className="table-container">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: '40px' }}>
+                            <input
+                              type="checkbox"
+                              checked={visibleFilteredChallenges.length > 0 && visibleFilteredChallenges.every(c => selectedQuestionIds.includes(c.id))}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  const newSelected = Array.from(new Set([...selectedQuestionIds, ...visibleFilteredChallenges.map(c => c.id)]));
+                                  setSelectedQuestionIds(newSelected);
+                                } else {
+                                  const newSelected = selectedQuestionIds.filter(id => !visibleFilteredChallenges.some(vc => vc.id === id));
+                                  setSelectedQuestionIds(newSelected);
+                                }
+                              }}
+                              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                          </th>
+                          <th>ID / Slug</th>
+                          <th>Title</th>
+                          <th>Category</th>
                       <th>Difficulty</th>
                       <th>Tags</th>
                       <th>Type</th>
@@ -1364,26 +1439,33 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {challenges
-                      .filter(c => {
-                        const matchesSearch = c.title.toLowerCase().includes(questionSearch.toLowerCase()) || c.id.toLowerCase().includes(questionSearch.toLowerCase());
-                        const matchesCategory = questionCategoryFilter === 'All' || c.category === questionCategoryFilter;
-                        const matchesDifficulty = questionDifficultyFilter === 'All' || c.difficulty === questionDifficultyFilter;
-                        return matchesSearch && matchesCategory && matchesDifficulty;
-                      })
-                      .map((c) => {
-                        const solved = completionsList.filter(comp => comp.challenge_id === c.id).length;
-                        const attempts = usersList.filter(u => {
-                          const keyPrefix = `deveval_keystrokes_${u.id}_${c.id}_`;
-                          const hasKeystrokes = Object.keys(localStorage).some(k => k.startsWith(keyPrefix));
-                          const hasCompletion = completionsList.some(comp => comp.user_id === u.id && comp.challenge_id === c.id);
-                          return hasKeystrokes || hasCompletion;
-                        }).length;
-                        const successRate = attempts > 0 ? `${Math.round((solved / attempts) * 100)}%` : '0%';
+                    {visibleFilteredChallenges.map((c) => {
+                      const solved = completionsList.filter(comp => comp.challenge_id === c.id).length;
+                      const attempts = usersList.filter(u => {
+                        const keyPrefix = `deveval_keystrokes_${u.id}_${c.id}_`;
+                        const hasKeystrokes = Object.keys(localStorage).some(k => k.startsWith(keyPrefix));
+                        const hasCompletion = completionsList.some(comp => comp.user_id === u.id && comp.challenge_id === c.id);
+                        return hasKeystrokes || hasCompletion;
+                      }).length;
+                      const successRate = attempts > 0 ? `${Math.round((solved / attempts) * 100)}%` : '0%';
 
-                        return (
-                          <tr key={c.id}>
-                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{c.id}</td>
+                      return (
+                        <tr key={c.id}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedQuestionIds.includes(c.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedQuestionIds([...selectedQuestionIds, c.id]);
+                                } else {
+                                  setSelectedQuestionIds(selectedQuestionIds.filter(id => id !== c.id));
+                                }
+                              }}
+                              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{c.id}</td>
                             <td style={{ fontWeight: 600 }}>{c.title}</td>
                             <td>{c.category}</td>
                             <td>
@@ -1475,6 +1557,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </tbody>
                 </table>
               </div>
+                );
+              })()}
             </>
           )}
 
@@ -1980,10 +2064,24 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         <td>{s.randomize ? '✅ Random Order' : '❌ Sequential'}</td>
                         <td style={{ fontWeight: 500 }}>{s.time_limit ? `${s.time_limit} mins` : 'Unlimited'}</td>
                         <td>
-                           {s.given_count && s.given_count > 0 && s.given_count < s.challenge_ids.length
-                             ? `${s.given_count} given (from ${s.challenge_ids.length} pool)`
-                             : `${s.challenge_ids.length} challenges`}
-                         </td>
+                          {(() => {
+                            const sectionChallenges = challenges.filter(c => s.challenge_ids.includes(c.id));
+                            const mcqCount = sectionChallenges.filter(c => c.isMcq).length;
+                            const codingCount = sectionChallenges.filter(c => !c.isMcq).length;
+                            return (
+                              <>
+                                <div>
+                                  {s.given_count && s.given_count > 0 && s.given_count < s.challenge_ids.length
+                                    ? `${s.given_count} given (from ${s.challenge_ids.length} pool)`
+                                    : `${s.challenge_ids.length} challenges`}
+                                </div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                  {mcqCount} MCQ • {codingCount} Coding
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </td>
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem' }}>
                             <span>Fullscreen: <strong style={{ color: s.enforce_fullscreen ? 'var(--error)' : 'var(--text-muted)' }}>{s.enforce_fullscreen ? 'Yes' : 'No'}</strong></span>
@@ -2180,9 +2278,23 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                           disabled={submitting}
                         />
                         <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontWeight: 600, fontSize: '0.9rem', color: isChecked ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                            {c.title}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.9rem', color: isChecked ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                              {c.title}
+                            </span>
+                            <span style={{
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: c.isMcq ? 'rgba(245, 158, 11, 0.12)' : 'rgba(139, 92, 246, 0.12)',
+                              color: c.isMcq ? 'var(--warning)' : '#bd93f9',
+                              border: `1px solid ${c.isMcq ? 'rgba(245, 158, 11, 0.2)' : 'rgba(139, 92, 246, 0.2)'}`
+                            }}>
+                              {c.isMcq ? 'MCQ' : 'Coding'}
+                            </span>
+                          </div>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                             {c.category} • {c.difficulty}
                           </span>
