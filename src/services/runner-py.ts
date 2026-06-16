@@ -43,17 +43,7 @@ export const initPyodide = async (onProgress?: (msg: string) => void): Promise<a
       indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/',
     });
 
-    // Override built-ins like input() to prevent generic OS I/O Errors and guide candidates
-    try {
-      await pyodide.runPythonAsync(`
-import builtins
-def friendly_input(*args, **kwargs):
-    raise RuntimeError("input() is not supported in this non-interactive environment. Please write your solution to accept parameters instead.")
-builtins.input = friendly_input
-      `);
-    } catch (e) {
-      console.warn('Failed to override builtins.input in Pyodide:', e);
-    }
+
 
     window.pyodideInstance = pyodide;
     if (onProgress) onProgress('Python ready.');
@@ -140,10 +130,8 @@ export const runPython = async (
       },
     });
 
-    // Run the user's Python code to load function definitions into globals
-    await pyodide.runPythonAsync(code);
-
     // Inject parameters for test runner serialization
+    pyodide.globals.set('__candidate_code__', code);
     pyodide.globals.set('__test_cases_json__', JSON.stringify(testCases));
     pyodide.globals.set('__target_function_name__', functionName);
 
@@ -151,44 +139,136 @@ export const runPython = async (
 import json
 import time
 import traceback
+import sys
+import io
+import builtins
 
 def run_tests():
     tc_data = json.loads(__test_cases_json__)
-    func = globals().get(__target_function_name__)
-    
-    if not func:
-        return json.dumps({
-            "success": False, 
-            "error": f"Function '{__target_function_name__}' was not found. Please verify your function definition."
-        })
+    func_name = __target_function_name__
+    candidate_code = __candidate_code__
     
     results = []
-    for tc in tc_data:
-        tc_id = tc['id']
-        args = tc['input']
-        
-        start = time.perf_counter()
-        try:
-            # Call user function with unpacked arguments
-            out_val = func(*args)
-            duration = (time.perf_counter() - start) * 1000
-            results.append({
-                "id": tc_id,
-                "output": out_val,
-                "duration": round(duration, 2),
-                "success": True
-            })
-        except Exception as e:
-            tb_str = traceback.format_exc()
-            duration = (time.perf_counter() - start) * 1000
-            results.append({
-                "id": tc_id,
-                "output": None,
-                "duration": round(duration, 2),
-                "success": False,
-                "error": tb_str
-            })
+    original_stdin = sys.stdin
+    original_input = builtins.input
+    original_stdout = sys.stdout
+    
+    try:
+        for tc in tc_data:
+            tc_id = tc['id']
+            args = tc['input']
             
+            # Serialize arguments to lines of text for stdin
+            stdin_lines = []
+            for arg in args:
+                if isinstance(arg, str):
+                    stdin_lines.append(arg)
+                elif isinstance(arg, (list, dict)):
+                    stdin_lines.append(json.dumps(arg))
+                else:
+                    stdin_lines.append(str(arg))
+            
+            stdin_content = "\\n".join(stdin_lines) + "\\n"
+            sys.stdin = io.StringIO(stdin_content)
+            
+            def mocked_input(prompt=""):
+                line = sys.stdin.readline()
+                if not line:
+                    raise EOFError("EOF when reading a line")
+                if line.endswith('\\n'):
+                    line = line[:-1]
+                if line.endswith('\\r'):
+                    line = line[:-1]
+                return line
+            
+            builtins.input = mocked_input
+            
+            # Capture stdout separately for this testcase
+            captured_stdout = io.StringIO()
+            sys.stdout = captured_stdout
+            
+            start = time.perf_counter()
+            
+            # Setup a clean sandboxed namespace for code execution
+            sandbox_globals = {
+                "__builtins__": builtins,
+                "sys": sys,
+                "io": io,
+                "json": json,
+                "time": time,
+            }
+            # Copy other default globals
+            for k, v in globals().items():
+                if k not in ["run_tests", "__test_cases_json__", "__target_function_name__", "__candidate_code__"]:
+                    sandbox_globals[k] = v
+            
+            success = True
+            error_msg = None
+            out_val = None
+            
+            try:
+                exec(candidate_code, sandbox_globals)
+                
+                # Try getting the function if defined
+                func = sandbox_globals.get(func_name)
+                if func and callable(func):
+                    res = func(*args)
+                    if res is not None:
+                        out_val = res
+                    else:
+                        # Fallback to stdout if function returned None but printed
+                        stdout_str = captured_stdout.getvalue().strip()
+                        if stdout_str:
+                            try:
+                                out_val = json.loads(stdout_str)
+                            except:
+                                out_val = stdout_str
+                        else:
+                            out_val = None
+                else:
+                    # Standard I/O output processing
+                    stdout_str = captured_stdout.getvalue().strip()
+                    if stdout_str:
+                        try:
+                            out_val = json.loads(stdout_str)
+                        except:
+                            out_val = stdout_str
+                    else:
+                        out_val = ""
+                        
+                duration = (time.perf_counter() - start) * 1000
+            except Exception as e:
+                tb_str = traceback.format_exc()
+                duration = (time.perf_counter() - start) * 1000
+                success = False
+                error_msg = tb_str
+            finally:
+                sys.stdout = original_stdout
+                # Flush stdout log
+                val = captured_stdout.getvalue()
+                if val:
+                    sys.stdout.write(val)
+            
+            if success:
+                results.append({
+                    "id": tc_id,
+                    "output": out_val,
+                    "duration": round(duration, 2),
+                    "success": True
+                })
+            else:
+                results.append({
+                    "id": tc_id,
+                    "output": None,
+                    "duration": round(duration, 2),
+                    "success": False,
+                    "error": error_msg
+                })
+    finally:
+        sys.stdin = original_stdin
+        builtins.input = original_input
+        sys.stdout = original_stdout
+        
     return json.dumps({"success": True, "results": results})
 
 run_tests()
