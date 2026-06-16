@@ -722,7 +722,7 @@ export const App: React.FC = () => {
   // Current active challenge
   const activeChallenge = challengesList.find((c) => c.id === selectedId) || null;
   const currentCode = activeChallenge 
-    ? userCode[activeChallenge.id]?.[language] || activeChallenge.boilerplate[language]
+    ? (userCode[activeChallenge.id]?.[language] ?? activeChallenge.boilerplate[language])
     : '';
 
 
@@ -732,7 +732,7 @@ export const App: React.FC = () => {
     if (activeChallenge && currentUser) {
       const key = `deveval_keystrokes_${currentUser.uid}_${activeChallenge.id}_${language}`;
       if (!localStorage.getItem(key)) {
-        const initialCode = userCode[activeChallenge.id]?.[language] || activeChallenge.boilerplate[language] || '';
+        const initialCode = userCode[activeChallenge.id]?.[language] ?? activeChallenge.boilerplate[language] ?? '';
         logKeystroke(currentUser.uid, activeChallenge.id, language, initialCode);
       }
     }
