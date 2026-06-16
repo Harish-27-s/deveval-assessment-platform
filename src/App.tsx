@@ -1251,7 +1251,7 @@ export const App: React.FC = () => {
                 📋 NDA & Code Integrity Agreement
               </h4>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
-                I agree not to record, share, copy or disclose any content of this test. I certify that all code written in this workspace will be entirely my own work without any aid from generative AI platforms or other external resources.
+                I agree not to record, share, copy or disclose any content of this test. I certify that all code written in this workspace will be entirely my own work without any aid from generative AI platforms or other external resources. Mankatha Da!
               </p>
               
               <div style={{ margin: 0 }}>
